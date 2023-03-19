@@ -19,7 +19,7 @@ from .. import utils
 # ========== TPU utilities ==========
 
 def num_tpu_replicas():
-  return tpu_function.get_tpu_context().number_of_shards
+  return tpu_function.get_tpu_context().number_of_shards or 1
 
 
 def get_tpu_replica_id():
@@ -117,9 +117,8 @@ def run_training(
   print('model dir:', model_dir)
   if tf.io.gfile.exists(model_dir):
     print('model dir already exists: {}'.format(model_dir))
-    if input('continue training? [y/n] ') != 'y':
-      print('aborting')
-      return
+  else:
+    tf.io.gfile.makedirs(model_dir)
 
   # Save kwargs in json format
   if dump_kwargs is not None:
@@ -162,7 +161,7 @@ def run_training(
       lr=warmed_up_lr,
       optimizer=optimizer,
       grad_clip=grad_clip / float(num_tpu_replicas()),
-      tpu=True
+      tpu=tpu
     )
 
     # ema
@@ -183,7 +182,7 @@ def run_training(
   print("warm_start_from:", warm_start_from)
   estimator = tf.estimator.tpu.TPUEstimator(
     model_fn=model_fn,
-    use_tpu=True,
+    use_tpu=False,
     train_batch_size=total_bs,
     eval_batch_size=total_bs,
     config=tf.estimator.tpu.RunConfig(
